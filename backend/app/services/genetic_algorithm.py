@@ -55,7 +55,7 @@ def evaluate_fitness(chromosome, X_train, X_val, y_train, y_val, model_type):
                 max_depth=int(chromosome["max_depth"]),
                 min_samples_split=int(chromosome["min_samples_split"]),
                 min_samples_leaf=int(chromosome["min_samples_leaf"]),
-                max_features=float(chromosome["max_features"]),
+                max_features=chromosome["max_features"],
                 random_state=42
             )
 
