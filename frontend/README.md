@@ -1,70 +1,146 @@
-# Getting Started with Create React App
+# Hyperparameter Optimization Research Lab
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A full-stack laboratory for evolutionary hyperparameter search that emphasises research-grade insight and interpretability. Upload your dataset, explore exploratory data analysis (EDA) panels, and benchmark genetic algorithm (GA) runs across model families with rich diagnostics.
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## Stack Overview
 
-### `npm start`
+- **Backend**: FastAPI (Python) with scikit-learn models and a custom GA engine (`backend/app`)
+- **Frontend**: React + Tailwind + Recharts/Chart.js visual analytics (`frontend/src`)
+- **Models Supported**: Random Forest, Support Vector Machine, Multi-layer Perceptron
+- **Key Outputs**: GA generation telemetry, evaluation metrics (classification & regression), ROC/Residual diagnostics, feature importance and dataset profiling
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+---
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Quick Start
 
-### `npm test`
+### 1. Backend (FastAPI)
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```bash
+cd backend
+python -m venv venv
+source venv/Scripts/activate      # Windows PowerShell: .\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
 
-### `npm run build`
+The API boots on `http://127.0.0.1:8000`.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### 2. Frontend (React)
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+cd frontend
+npm install
+npm start
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+The UI runs on `http://localhost:3000` and expects the backend to be available.
 
-### `npm run eject`
+---
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## User Journey
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+1. **Curate Dataset**  
+   Upload a CSV or load provided templates (Iris, Wine). The backend persists to `app/storage/dataset.csv`.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+2. **EDA Snapshot**  
+   Automatic dataset summary includes:
+   - Shape, column types, missing value distribution
+   - Numeric feature stats (mean/std/min/max/median/skew/kurtosis)
+   - Categorical top-k levels
+   - High-correlation pairs (|r| ≥ 0.5)
+   - Sample rows preview
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+3. **Target Selection & Model Setup**  
+   Pick the response variable, choose a model family, and tune GA parameters (generations/population size).
 
-## Learn More
+4. **Run GA Optimization**  
+   Backend executes the GA, returning generation-level telemetry plus the champion model.
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+5. **Research Insights Dashboard**  
+   - Best hyperparameters & GA leaderboard
+   - Performance metrics (accuracy/precision/recall/F1 or MAE/MSE/R²)
+   - ROC curve, confusion matrix, classification report
+   - Residual diagnostics for regression
+   - Feature importance / coefficient analysis
+   - Prediction preview with probabilities (classification)
+   - Downloadable trained model artifact (Joblib)
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+---
 
-### Code Splitting
+## API Surface (Selected Endpoints)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/load/upload-dataset` | POST | Upload CSV; returns `columns` and `summary` payload |
+| `/load/load-default-dataset` | POST | Load iris/wine template; same response shape as upload |
+| `/getDefault/default-datasets` | GET | Enumerate bundled datasets |
+| `/optimize/start-optimization` | POST | Trigger GA search |
+| `/optimize/download-model/{model_id}` | GET | Stream the persisted best model as a Joblib artifact |
 
-### Analyzing the Bundle Size
+### Optimization Response Shape (abridged)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+```jsonc
+{
+  "best_score": 0.9421,
+  "best_params": { "n_estimators": 142, "max_depth": 9, ... },
+  "generation_scores": [0.88, 0.90, 0.93, 0.94, ...],
+  "generation_details": [
+    {
+      "generation": 1,
+      "best_score": 0.88,
+      "average_score": 0.76,
+      "top_candidates": [{ "rank": 1, "score": 0.88, "params": { ... } }]
+    },
+    ...
+  ],
+  "evaluation": {
+    "summary": { "accuracy": 0.94, "precision_weighted": 0.95, ... },
+    "classification_report": { "0": { "precision": ... }, "accuracy": 0.94, ... },
+    "confusion_matrix": [[10, 0], [1, 9]],
+    "roc_curve": { "fpr": [...], "tpr": [...], "auc": 0.97 },
+    "residuals": { ... } // regression only
+  },
+  "predictions": {
+    "y_true": [0, 1, ...],
+    "y_pred": [0, 1, ...],
+    "probabilities": [[0.1, 0.9], ...]
+  },
+  "feature_insights": {
+    "type": "feature_importance",
+    "values": [{ "feature": "sepal_length", "importance": 0.31 }, ...]
+  }
+}
+```
 
-### Making a Progressive Web App
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## Frontend Highlights
 
-### Advanced Configuration
+- Multi-step workflow with contextual guidance and inline validation
+- Research-focused analytics:
+  - GA trajectory (best/mean/median fitness)
+  - Final generation leaderboard with hyperparameter chips
+  - Interactive ROC curve and residual area chart
+  - Heat-mapped confusion matrix
+- Prediction preview table (first 10 validation samples)
+- Responsive layout optimized for desktop dashboards
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+---
 
-### Deployment
+## Extending the Lab
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+- Swap/expand model families inside `backend/app/services/genetic_algorithm.py`
+- Add bespoke metrics (e.g., PR curves) by enriching `run_optimization`
+- Integrate additional charts by extending the React component library in `frontend/src/components`
 
-### `npm run build` fails to minify
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## Troubleshooting & Tips
+
+- Ensure the backend is running before loading the UI; the frontend relies on live API calls.
+- Large datasets may increase GA runtime; tweak population size and generations judiciously.
+- For classification targets, ensure the dataset includes balanced classes to leverage ROC interpretation.
+
+Happy experimenting!

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { getDefaultDatasets, loadDefaultDataset, uploadDataset } from "../api";
 
-const DatasetSelector = ({ setDatasetColumns }) => {
+const DatasetSelector = ({ onDatasetLoaded }) => {
   const [datasets, setDatasets] = useState([]);
   const [selectedDataset, setSelectedDataset] = useState("");
   const [file, setFile] = useState(null);
@@ -47,14 +47,16 @@ const DatasetSelector = ({ setDatasetColumns }) => {
       const formData = new FormData();
       formData.append("file", file);
       uploadDataset(formData)
-        .then((response) => setDatasetColumns(response.data.columns))
+        .then((response) => onDatasetLoaded(response.data))
         .catch((error) => console.error("Error uploading dataset:", error));
     }
   };
 
   const handleDefaultDatasetLoad = () => {
+    if (!selectedDataset) return;
+
     loadDefaultDataset(selectedDataset)
-      .then((response) => setDatasetColumns(response.data.columns))
+      .then((response) => onDatasetLoaded(response.data))
       .catch((error) => console.error("Error loading default dataset:", error));
   };
 

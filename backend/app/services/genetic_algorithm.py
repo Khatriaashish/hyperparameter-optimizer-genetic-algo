@@ -1,9 +1,9 @@
 import numpy as np
 import random
+from copy import deepcopy
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.svm import SVC
 from sklearn.neural_network import MLPClassifier, MLPRegressor
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.utils.multiclass import type_of_target
 
@@ -136,48 +136,98 @@ def mutate(chromosome, model_type, mutation_rate=0.1):
                 chromosome[key] = random.randint(*r)
     return chromosome
 
-def run_ga(X, y, generations=10, population_size=10, model_type="random_forest", return_model=False):
-    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
-
+def run_ga(
+    X_train,
+    y_train,
+    X_val,
+    y_val,
+    generations=10,
+    population_size=10,
+    model_type="random_forest",
+    return_model=False,
+):
     population = create_population(population_size, model_type)
     best_chromosome = None
     best_fitness = float('-inf')
     best_model = None
     best_params = None
     generation_scores = []
+    generation_details = []
 
     for gen in range(generations):
+        evaluation_records = []
         fitnesses = []
-        models = []
-        all_params = []
-
-        for ind in population:
-            fitness, params, model = evaluate_fitness(ind, X_train, X_val, y_train, y_val, model_type)
+        for individual in population:
+            chromosome = deepcopy(individual)
+            fitness, params, model = evaluate_fitness(
+                chromosome, X_train, X_val, y_train, y_val, model_type
+            )
+            evaluation_records.append(
+                {
+                    "chromosome": chromosome,
+                    "fitness": fitness,
+                    "params": params,
+                    "model": model,
+                }
+            )
             fitnesses.append(fitness)
-            models.append(model)
-            all_params.append(params)
 
-        max_fitness = max(fitnesses)
-        max_index = fitnesses.index(max_fitness)
+        valid_records = [rec for rec in evaluation_records if np.isfinite(rec["fitness"])]
+        if valid_records:
+            best_record = max(valid_records, key=lambda rec: rec["fitness"])
+        else:
+            best_record = max(evaluation_records, key=lambda rec: rec["fitness"])
 
+        max_fitness = best_record["fitness"]
         if max_fitness > best_fitness:
             best_fitness = max_fitness
-            best_chromosome = population[max_index]
-            best_model = models[max_index]
-            best_params = all_params[max_index]
+            best_chromosome = deepcopy(best_record["chromosome"])
+            best_model = best_record["model"]
+            best_params = best_record["params"]
 
-        print(f"Generation {gen+1} | Best Fitness: {max_fitness:.4f} | Params: {population[max_index]}")
-        generation_scores.append(max_fitness)
+        print(
+            f"Generation {gen+1} | Best Fitness: {max_fitness:.4f} | Params: {best_record['chromosome']}"
+        )
 
-        selected = selection(population, fitnesses)
+        finite_scores = [rec["fitness"] for rec in valid_records]
+        generation_scores.append(max_fitness if np.isfinite(max_fitness) else 0.0)
+
+        sorted_candidates = sorted(
+            (valid_records or evaluation_records),
+            key=lambda rec: rec["fitness"],
+            reverse=True,
+        )
+        top_candidates = []
+        for idx, candidate in enumerate(sorted_candidates[:3]):
+            top_candidates.append(
+                {
+                    "rank": idx + 1,
+                    "score": candidate["fitness"] if np.isfinite(candidate["fitness"]) else None,
+                    "params": deepcopy(candidate["chromosome"]),
+                }
+            )
+
+        generation_details.append(
+            {
+                "generation": gen + 1,
+                "best_score": max_fitness if np.isfinite(max_fitness) else None,
+                "average_score": float(np.mean(finite_scores)) if finite_scores else None,
+                "median_score": float(np.median(finite_scores)) if finite_scores else None,
+                "std_dev": float(np.std(finite_scores)) if len(finite_scores) > 1 else 0.0 if finite_scores else None,
+                "top_candidates": top_candidates,
+            }
+        )
+
+        population_chromosomes = [deepcopy(rec["chromosome"]) for rec in evaluation_records]
+        selected = selection(population_chromosomes, fitnesses)
         next_population = []
 
         for i in range(0, population_size, 2):
-            parent1 = selected[i]
-            parent2 = selected[min(i + 1, population_size - 1)]
+            parent1 = deepcopy(selected[i % len(selected)])
+            parent2 = deepcopy(selected[(i + 1) % len(selected)])
             child1, child2 = crossover(parent1, parent2)
-            next_population.append(mutate(child1, model_type))
-            next_population.append(mutate(child2, model_type))
+            next_population.append(mutate(deepcopy(child1), model_type))
+            next_population.append(mutate(deepcopy(child2), model_type))
 
         population = next_population[:population_size]
 
@@ -189,6 +239,6 @@ def run_ga(X, y, generations=10, population_size=10, model_type="random_forest",
         print(f"Best Params: {best_params}")
 
     if return_model:
-        return best_params, best_fitness, generation_scores, best_model
+        return best_params, best_fitness, generation_scores, best_model, generation_details
 
-    return best_params, best_fitness, generation_scores
+    return best_params, best_fitness, generation_scores, generation_details

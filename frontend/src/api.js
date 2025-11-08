@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://127.0.0.1:8000"; // FastAPI backend URL
+export const API_URL = "http://127.0.0.1:8000"; // FastAPI backend URL
 
 export const uploadDataset = (formData) => {
   return axios.post(`${API_URL}/load/upload-dataset`, formData, {
@@ -19,3 +19,6 @@ export const startOptimization = (params) => {
 export const getDefaultDatasets = () => {
   return axios.get(`${API_URL}/getDefault/default-datasets`);
 };
+
+export const getModelDownloadUrl = (modelId) =>
+  `${API_URL}/optimize/download-model/${modelId}`;
